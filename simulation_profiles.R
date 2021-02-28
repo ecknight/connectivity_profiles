@@ -1,3 +1,7 @@
+#title: Construction of migratory connectivity profiles from simulation from Knight et al. 2021. Comprehensive estimation of spatial and temporal migratory connectivity across the annual cycle to direct conservation efforts. Ecography ECOG-05111
+#author: Elly C. Knight
+#date: Aug. 19, 2020
+
 library(tidyverse)
 library(mgcv)
 library(sf)
