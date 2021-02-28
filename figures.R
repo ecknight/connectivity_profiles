@@ -548,7 +548,8 @@ plot.gcd <- ggplot() +
 #plot.gcd
 
 #Wintering ground inset----
-#register_google(key="AIzaSyCta9P4x7jGNELznpwlx07VZkkLVk3FP4M")
+#google API key here
+#register_google(key="")
 
 center <- dat1 %>% 
   summarize(long=mean(WintLong),
