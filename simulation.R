@@ -1,3 +1,7 @@
+#title: Simulation from Knight et al. 2021. Comprehensive estimation of spatial and temporal migratory connectivity across the annual cycle to direct conservation efforts. Ecography ECOG-05111
+#author: Elly C. Knight
+#date: Aug. 14, 2020
+
 library(sp)
 library(sf)
 library(rgdal)
