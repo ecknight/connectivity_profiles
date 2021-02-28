@@ -1,3 +1,7 @@
+#title: Figures from Knight et al. 2021. Comprehensive estimation of spatial and temporal migratory connectivity across the annual cycle to direct conservation efforts. Ecography ECOG-05111
+#author: Elly C. Knight
+#date: Jan. 17, 2021
+
 options(scipen = 99999)
 
 library(tidyverse)
