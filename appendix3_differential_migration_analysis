@@ -1,3 +1,7 @@
+#title: Differential migration data screening for Appendix 3 from Knight et al. 2021. Comprehensive estimation of spatial and temporal migratory connectivity across the annual cycle to direct conservation efforts. Ecography ECOG-05111
+#author: Elly C. Knight
+#date: Nov. 6, 2020
+
 library(tidyverse)
 library(lubridate)
 library(lme4)
