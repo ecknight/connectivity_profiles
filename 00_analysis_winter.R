@@ -1,7 +1,9 @@
 #title: Wintering ground migratory connectivity analysis from Knight et al. 2021. Comprehensive estimation of spatial and temporal migratory connectivity across the annual cycle to direct conservation efforts. Ecography ECOG-05111
 #author: Elly C. Knight
-#date: Oct. 20, 2020
+#created: Oct. 20, 2020
 
+#1. PRELIMINARY####
+#load packages
 library(sp)
 library(sf)
 library(rgdal)
@@ -14,30 +16,10 @@ library(crawl)
 library(ggspatial)
 library(lubridate)
 
+#limit display of scientific notation
 options(scipen = 999)
 
-my.theme <- theme_classic() +
-  theme(text=element_text(size=16, family="Arial"),
-        axis.text.x=element_text(size=12),
-        axis.text.y=element_text(size=12),
-        axis.title.x=element_text(margin=margin(10,0,0,0)),
-        axis.title.y=element_text(margin=margin(0,10,0,0)),
-        axis.line.x=element_line(linetype=1),
-        axis.line.y=element_line(linetype=1),
-        legend.text=element_text(size=12),
-        legend.title=element_text(size=14),
-        plot.title=element_text(size=14))
-
-make_names <- function(x) {
-  new_names <- make.names(colnames(x))
-  new_names <- gsub("\\.", "_", new_names)
-  new_names <- tolower(new_names)
-  colnames(x) <- new_names
-  x
-}
-
-#PRELIM: DEFINE NEW FUNCTIONS####
-
+#write function for estimating connectivity
 estMantel <- function(targetPoints,
                       originPoints,
                       targetErrorX,
@@ -96,16 +78,15 @@ estMantel <- function(targetPoints,
   
 }
 
-#1. LOAD DATA----
-dat <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Data/CONIMCP_CleanDataAll.csv")  %>% 
+#2. WRANGLE####
+#Load tracking data and specify individuals with secondary wintering grounds
+dat <- read.csv("CONIMCP_CleanDataAll.csv")  %>% 
   mutate(Winter2 = case_when(PinpointID %in% c(81, 439, 443, 490, 825, 826, 828) & Season2=="Winter2" ~ 2,
                              PinpointID %in% c(81, 439, 443, 490, 825, 826, 828) & Season2=="Winter" ~ 3,
                              !PinpointID %in% c(81, 439, 443, 490, 825, 826, 828) & Season2=="Winter" ~ 1,
-                             is.na(Season2) ~ 0)) %>% 
-  dplyr::filter(PinpointID!=829)
+                             is.na(Season2) ~ 0))
 
-pop <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Data/tbl_population_abundance.csv")
-
+#Select individuals with wintering grounds for analysis
 originids <- dat %>% 
   dplyr::filter(Winter==1) %>% 
   dplyr::select(PinpointID) %>% 
@@ -117,8 +98,7 @@ targetids <- dat %>%
   dplyr::select(PinpointID) %>% 
   unique()
 
-
-#2. Wrangle----
+#Determine breeding ground points (origin)
 originPoints <- dat  %>% 
   dplyr::filter(Winter==1,
                 Season2=="Breed1") %>% 
@@ -133,7 +113,7 @@ originPoints <- dat  %>%
   st_geometry() %>% 
   as_Spatial()
 
-#First wintering grounds----
+#Determine wintering ground points (target) for first set of wintering ground locations
 targetPoints1 <- dat %>%
   dplyr::filter(Winter==1,
                 Season2=="Winter") %>% 
@@ -147,6 +127,7 @@ targetPoints1 <- dat %>%
   st_geometry() %>% 
   as_Spatial()
 
+#Calculate location error of target points for first set of wintering ground locations
 targetError1 <- dat %>% 
   dplyr::filter(Winter==1,
                 Season2=="Winter") %>% 
@@ -164,7 +145,7 @@ targetError1 <- dat %>%
 targetError1X <- targetError1$X
 targetError1Y <- targetError1$Y
 
-#Second wintering grounds----
+#Determine wintering ground points (target) for second set of wintering ground locations
 targetPoints2 <- dat %>%
   dplyr::filter(Winter2 %in% c(1,2),
                 Season2 %in% c("Winter", "Winter2")) %>% 
@@ -178,6 +159,7 @@ targetPoints2 <- dat %>%
   st_geometry() %>% 
   as_Spatial()
 
+#Calculate location error of target points for second set of wintering ground locations
 targetError2 <- dat %>%
   dplyr::filter(Winter2 %in% c(1,2),
                 Season2 %in% c("Winter", "Winter2")) %>% 
@@ -187,7 +169,6 @@ targetError2 <- dat %>%
   cbind(dat %>% 
           dplyr::filter(Winter2 %in% c(1,2),
                         Season2 %in% c("Winter", "Winter2"))) %>% 
-#  dplyr::select(PinpointID, DateTime, Lat, Long, Season2, X, Y, WintDistRound) %>% 
   group_by(PinpointID) %>% 
   summarize(X=sd(X),
             Y=sd(Y)) %>% 
@@ -196,16 +177,19 @@ targetError2 <- dat %>%
 targetError2X <- targetError2$X
 targetError2Y <- targetError2$Y
 
-#3. Calculate connectivity
+#3. CALCULATE CONNECTIVITY####
+#First set of wintering ground locations
 Man1 <- estMantel(originPoints = originPoints,
                 targetPoints = targetPoints1,
                 targetErrorX = targetError1X,
                 targetErrorY = targetError1Y,
                 nBoot = 1000)
+Man1
 
+#Second set of wintering ground locations
 Man2 <- estMantel(originPoints = originPoints,
                   targetPoints = targetPoints2,
                   targetErrorX = targetError2X,
                   targetErrorY = targetError2Y,
                   nBoot = 1000)
-
+Man2

@@ -2,48 +2,23 @@
 #author: Elly C. Knight
 #date: Aug. 19, 2020
 
+#1. PRELIMINARY####
+#load packages
 library(tidyverse)
 library(mgcv)
 library(sf)
 library(pracma)
 library(meanShiftR)
-library(lubridate)
 
-nam <- map_data("world", region=c("Canada", 
-                                  "USA", 
-                                  "Mexico",
-                                  "Guatemala", 
-                                  "Belize", 
-                                  "El Salvador",
-                                  "Honduras", 
-                                  "Nicaragua", 
-                                  "Costa Rica",
-                                  "Panama", 
-                                  "Jamaica", 
-                                  "Cuba", 
-                                  "The Bahamas",
-                                  "Haiti", 
-                                  "Dominican Republic", 
-                                  "Antigua and Barbuda",
-                                  "Dominica", 
-                                  "Saint Lucia", 
-                                  "Saint Vincent and the Grenadines", 
-                                  "Barbados",
-                                  "Grenada",
-                                  "Trinidad and Tobago")) %>% 
-  dplyr::filter(!group%in%c(258:264))
+#limit display of scientific notation
+options(scipen = 999)
 
-#Version 8: Selecting k for GAM automatically and using 83.4% CI on vs of mantel to select peaks
+#Change working directory to subfolder
+setwd(paste0(getwd(),"/simulation"))
 
-options(scipen = 999999)
+#2. SPATIAL####
 
-count <- 3
-
-rd <- "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/Results/"
-
-#A. SPATIAL####
-
-#Find peaks----
+##2a. Find peaks----
 files.spat <- list.files(paste0(rd, "MCSpatial"))
 peaks.spat.final <- data.frame()
 for(i in 1:length(files.spat)){
@@ -218,7 +193,7 @@ for(i in 1:length(files.spat)){
     
     if(nrow(peaks.spat.all) >0){
       
-      raw <- read.csv(paste0("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/Data/StartingPoints/SimulationStartingPoints_",
+      raw <- read.csv(paste0("Data/StartingPoints/SimulationStartingPoints_",
                              unique(peaks.spat.all$n.pop),
                              "-",
                              unique(peaks.spat.all$n.ind),
@@ -260,7 +235,7 @@ for(i in 1:length(files.spat)){
   
 }
 
-#Wrangle----
+##2b. Wrangle----
 peaks.spat.final.clean <- peaks.spat.final %>% 
   full_join(data.frame(file=files.spat)) %>% 
   separate(file, into=c("metric", "connectivity", "n.pop", "n.ind", "n.gps", "sim", ".filetype"), remove=FALSE) %>% 
@@ -279,10 +254,10 @@ peaks.spat.final.clean <- peaks.spat.final %>%
 #  dplyr::filter(n.gps <= 50) %>% 
   unique() 
 
-write.csv(peaks.spat.final.clean, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/CleanedSpatialPeaks_All.csv", row.names = FALSE)
+write.csv(peaks.spat.final.clean, "CleanedSpatialPeaks_All.csv", row.names = FALSE)
 
-#Probability of false negative----
-peaks.spat.final.clean <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/CleanedSpatialPeaks_All.csv") %>% 
+##2c. Calculate probability of false negative----
+peaks.spat.final.clean <- read.csv("CleanedSpatialPeaks_All.csv") %>% 
   dplyr::filter(n.gps <= 50)
 
 #Data
@@ -343,7 +318,7 @@ ggplot(pred.spat.fn.gps) +
   geom_line(aes(x=n.gps, y=fit)) +
   geom_ribbon(aes(x=n.gps, ymax=fit+2*se, ymin=fit-2*se), alpha=0.5)
 
-#Probability of false positive----
+##2d. Calcualte probability of false positive----
 #Data
 peaks.spat.final.fp <- peaks.spat.final.clean %>% 
   dplyr::filter(status=="fp") %>% 
@@ -412,7 +387,7 @@ ggplot(pred.spat.fp.gps) +
   geom_ribbon(aes(x=n.gps, ymax=fit+2*se, ymin=fit-2*se), alpha=0.5)
 
   
-#Mean peak value (true positives only)----
+##2e. Calculate mean peak value (true positives only)----
 peaks.spat.final.tp <- peaks.spat.final.clean %>% 
   dplyr::filter(true==1,
                 !is.na(Mmean)) %>% 
@@ -432,7 +407,7 @@ ggplot(peaks.spat.final.tp) +
   geom_point(aes(x=n.gps, y=Mmean)) +
   geom_smooth(aes(x=n.gps, y=Mmean), method="lm")
 
-#Mean CI (true positives only)----
+##2f. Calcualte mean CI (true positives only)----
 ci1 <- lm(CI95 ~ log(n.ind)+log(n.gps), data=peaks.spat.final.tp)
 summary(ci1)
 
@@ -444,8 +419,8 @@ ggplot(peaks.spat.final.tp) +
   geom_point(aes(x=log(n.gps), y=CI95)) +
   geom_smooth(aes(x=log(n.gps), y=CI95))
 
-#A. TEMPORAL####
-#Find peaks----
+#2. TEMPORAL CONNECTIVITY####
+##3a. Find peaks----
 files.temp <- list.files(paste0(rd, "MCTemporal"))
 peaks.temp.final <- data.frame()
 for(i in 1:length(files.temp)){
@@ -617,7 +592,7 @@ for(i in 1:length(files.temp)){
     
     if(nrow(peaks.temp.all) >0){
       
-      raw <- read.csv(paste0("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/Data/StartingPoints/SimulationStartingPoints_",
+      raw <- read.csv(paste0("Data/StartingPoints/SimulationStartingPoints_",
                              unique(peaks.temp.all$n.pop),
                              "-",
                              unique(peaks.temp.all$n.ind),
@@ -652,7 +627,7 @@ for(i in 1:length(files.temp)){
   
 }
 
-#Wrangle----
+##3b. Wrangle----
 peaks.temp.final.clean <- peaks.temp.final %>% 
   full_join(data.frame(file=files.temp)) %>% 
   separate(file, into=c("metric", "connectivity", "n.pop", "n.ind", "n.gps", "sim", ".filetype"), remove=FALSE) %>% 
@@ -667,13 +642,12 @@ peaks.temp.final.clean <- peaks.temp.final %>%
          n.pop = as.numeric(n.pop),
          n.ind = as.numeric(n.ind),
          n.gps = as.numeric(n.gps)) %>% 
-#  dplyr::filter(n.gps <= 50) %>% 
   arrange(n.pop, n.ind, n.gps, sim)
 
-write.csv(peaks.temp.final.clean, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/CleanedTemporalPeaks_All.csv", row.names = FALSE)
+write.csv(peaks.temp.final.clean, "CleanedTemporalPeaks_All.csv", row.names = FALSE)
 
-#Probability of false negative----
-peaks.temp.final.clean <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/CleanedTemporalPeaks_All.csv") %>% 
+##3c. Calculate probability of false negative----
+peaks.temp.final.clean <- read.csv("CleanedTemporalPeaks_All.csv") %>% 
   dplyr::filter(n.gps <= 50)
 
 #Data
@@ -734,7 +708,7 @@ ggplot(pred.temp.fn.gps) +
   geom_line(aes(x=n.gps, y=fit)) +
   geom_ribbon(aes(x=n.gps, ymax=fit+2*se, ymin=fit-2*se), alpha=0.5)
 
-#Probability of false positive----
+##3d. Calcualte probability of false positive----
 #Data
 peaks.temp.final.fp <- peaks.temp.final.clean %>% 
   dplyr::filter(status=="fp") %>% 
@@ -802,7 +776,7 @@ ggplot(pred.temp.fp.gps) +
   geom_line(aes(x=n.gps, y=fit)) +
   geom_ribbon(aes(x=n.gps, ymax=fit+2*se, ymin=fit-2*se), alpha=0.5)
 
-#Mean peak value (true positives only)----
+##3e. Calculate mean peak value (true positives only)----
 peaks.temp.final.tp <- peaks.temp.final.clean %>% 
   dplyr::filter(true==1,
                 !is.na(Mmean)) %>% 
@@ -822,7 +796,7 @@ ggplot(peaks.temp.final.tp) +
   geom_point(aes(x=n.gps, y=Mmean)) +
   geom_smooth(aes(x=n.gps, y=Mmean), method="lm")
 
-#Mean CI (true positives only)----
+##3f. Calcualte mean CI (true positives only)----
 ci1 <- lm(CI95 ~ log(n.ind)+log(n.gps), data=peaks.temp.final.tp)
 summary(ci1)
 plot(ci1)
@@ -835,59 +809,14 @@ ggplot(peaks.temp.final.tp) +
   geom_point(aes(x=log(n.gps), y=CI95)) +
   geom_smooth(aes(x=log(n.gps), y=CI95))
 
-#Predictions for figure----
+#4. SUMMARIZE####
+#4a. Predictions for figure----
 pred.ind.fn <- rbind(pred.spat.fn.ind, pred.temp.fn.ind)
 pred.ind.fp <- rbind(pred.spat.fp.ind, pred.temp.fp.ind)
 pred.gps.fn <- rbind(pred.spat.fn.gps, pred.temp.fn.gps)
 pred.gps.fp <- rbind(pred.spat.fp.gps, pred.temp.fp.gps)
 
-write.csv(pred.ind.fn, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/SimulationResults_FN_Individual.csv", row.names = FALSE)
-write.csv(pred.ind.fp, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/SimulationResults_FP_Individual.csv", row.names = FALSE)
-write.csv(pred.gps.fn, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/SimulationResults_FN_GPS.csv", row.names = FALSE)
-write.csv(pred.gps.fp, "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/SimulationResults_FP_GPS.csv", row.names = FALSE)
-
-
-#Interogating false negatives----
-#Spatial
-peaks.spat.fn <- peaks.spat.final.clean %>% 
-  dplyr::filter(status=="fn")
-
-hist(peaks.spat.fn$lat)
-
-#Interogating false positives----
-#Spatial
-peaks.spat.fp <- peaks.spat.final.clean %>% 
-  dplyr::filter(status=="fp")
-
-hist(peaks.spat.fp$lat)
-
-#Temporal
-peaks.temp.fp <- peaks.temp.final.clean %>% 
-  dplyr::filter(status=="fp") %>% 
-  mutate(data=paste0("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/Data/TemporalConnectivityPoints/TemporalConnectivityPoints_3-",n.ind,"-",n.gps,"_",sim,".csv" ))
-
-hist(peaks.temp.fp$doy)
-
-for(i in 1:nrow(peaks.temp.fp)){
-  
-  dat <- read.csv(peaks.temp.fp$data[i]) %>% 
-    filter(doy==peaks.temp.fp$doy[i])
-  
-  plot.fp <- ggplot(dat) +
-    geom_polygon(data=nam, aes(x=long, y=lat, group=group), colour = "gray85", fill = "gray75", size=0.3) +
-    geom_point(aes(x = long, y = lat,
-                   colour=pop),
-               alpha = .6,
-               size=2.5,
-               show.legend = FALSE) +
-    scale_colour_viridis_c() +
-    coord_sf(xlim=c(-170, -30), expand = FALSE, crs=4326)
-
-    ggplot2::ggsave(plot=plot.fp, 
-                    paste0("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/Figs/TemporalFalsePeaks/TemporalFalsePeaks_3-",
-                           peaks.temp.fp$n.ind[i],"-",
-                           peaks.temp.fp$n.gps[i],"_",
-                           peaks.temp.fp$sim[i],".jpeg" ),
-                    width=8, height=8, units="in", device="jpeg")
-  
-}
+write.csv(pred.ind.fn, "SimulationResults_FN_Individual.csv", row.names = FALSE)
+write.csv(pred.ind.fp, "SimulationResults_FP_Individual.csv", row.names = FALSE)
+write.csv(pred.gps.fn, "SimulationResults_FN_GPS.csv", row.names = FALSE)
+write.csv(pred.gps.fp, "SimulationResults_FP_GPS.csv", row.names = FALSE)

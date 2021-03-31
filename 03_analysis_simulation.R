@@ -2,6 +2,8 @@
 #author: Elly C. Knight
 #date: Aug. 14, 2020
 
+#1. Preliminary####
+#load packages
 library(sp)
 library(sf)
 library(rgdal)
@@ -18,18 +20,20 @@ library(mgcv)
 library(pracma)
 library(meanShiftR)
 
-options(scipen = 9999999)
+#Change working directory to subfolder
+setwd(paste0(getwd(),"/simulation"))
 
-#set.seed(123)
+#limit display of scientific notation
+options(scipen = 999)
 
-#Results directory
-rd <- "/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Connectivity/Simulation_MC5/"
+#set seed for reproducability
+set.seed(123)
 
-#PRELIM: DEFINE NEW FUNCTIONS####
-
+#write function for estimating connectivity
 estMantel <- function(targetPoints,
                       originPoints,
-                      targetError,
+                      targetErrorX,
+                      targetErrorY,
                       nBoot = 1000,
                       alpha = 0.05,
                       resampleProjection=MigConnectivity::projections$EquidistConic){
@@ -49,13 +53,14 @@ estMantel <- function(targetPoints,
   for(boot in 1:nBoot){
     
     #Randomly sample spatial error
-    sample.error <- apply(array(targetError), 1, function(x) rnorm(1, mean=0, sd=x))
+    sample.error.x <- apply(array(targetErrorX), 1, function(x) rnorm(1, mean=0, sd=x))
+    sample.error.y <- apply(array(targetErrorY), 1, function(x) rnorm(1, mean=0, sd=x))
     
     #Add to coordinates
     point.sample <- data.frame(targetPoints@coords) %>% 
-      cbind(sample.error)  %>% 
-      mutate(newx1 = coords.x1 + sample.error,
-             newx2 = coords.x2 + sample.error) %>% 
+      cbind(sample.error.x, sample.error.y)  %>% 
+      mutate(newx1 = coords.x1 + sample.error.x,
+             newx2 = coords.x2 + sample.error.y) %>% 
       dplyr::select(newx1, newx2) %>% 
       sp::SpatialPoints(proj4string = sp::CRS(MigConnectivity::projections$EquidistConic))
     #Calculate distance matrix
@@ -83,9 +88,7 @@ estMantel <- function(targetPoints,
   
 }
 
-
-
-#1. Spatial settings----
+#2. Spatial settings####
 
 #Breeding - connectivity = 1
 breed.min.lat <- 50
@@ -118,7 +121,7 @@ buff.stop2 <- 300000
 #Size of populations (metres)
 pop.size <- 50000
 
-#2. Temporal settings----
+#3. Temporal settings####
 
 mig.length.min <- 20
 mig.length.max <- 30
@@ -128,7 +131,7 @@ mig.start.max <- 20
 
 buff.date <- 4
 
-#3. Other settings----
+#4. Other settings####
 
 #Relative abundance
 abun.max <- 100
@@ -140,7 +143,7 @@ set.mc <- 100
 #Number of simulation runs
 set.sim <- 2000
 
-#4. Sample size settings----
+#5. Sample size settings####
 
 #Number of populations
 set.pop <- c(3) #Must be at least 3 to do leave one out
@@ -156,9 +159,8 @@ set.gps.max <- 1000
 #List of settings to run
 settings <- expand.grid(n.pop=set.pop, n.ind=set.ind, n.gps=set.gps)
 
-#5. Set up simulation loop----
-times <- read.csv(paste0(rd,"RunTimes.csv"))
-#times <- data.frame()
+#6. Set up simulation loop----
+times <- data.frame()
 for(f in 1:set.sim){
   
   n.files <- 0
@@ -177,7 +179,7 @@ for(f in 1:set.sim){
     n.ind <- round(runif(min=set.ind.min, max=set.ind.max, n=1))
     n.gps <- round(runif(min=set.gps.min, max=set.gps.max, n=1))
     
-    #6. Select breeding departure dates with high temporal connectivity----
+    #7. Select breeding departure dates with high temporal connectivity----
     dates.breed <- data.frame()
     while (nrow(dates.breed) < n.pop) {
       
@@ -204,7 +206,7 @@ for(f in 1:set.sim){
       }
     }
     
-    #7. Select  other dates----
+    #8. Select  other dates----
     dates <- data.frame(expand.grid(pop=(1:n.pop), ind=1:n.ind)) %>% 
       mutate(breed = rep(dates.breed$breed, n.ind)) %>% 
       mutate(stop1 = breed + round(runif(min=mig.length.min, max=mig.length.max, n.pop*n.ind)),
@@ -216,7 +218,7 @@ for(f in 1:set.sim){
              winter = as.Date(winter, origin="2020-01-01")) %>% 
       tidyr::gather("season", "day", breed:winter)
 
-    #8. Select breeding population centroids----
+    #9. Select breeding population centroids----
     breed.pop <- data.frame()
     while (nrow(breed.pop) < n.pop) {
       
@@ -254,7 +256,7 @@ for(f in 1:set.sim){
       cbind(breed.pop) %>% 
       mutate(pop = row_number())
     
-    #9. Select individual breeding locations----
+    #10. Select individual breeding locations----
     locs.breed <- data.frame()
     for(i in 1:nrow(breed.pop)){
       pop = rep(breed.pop$pop[i], n.ind)
@@ -268,7 +270,7 @@ for(f in 1:set.sim){
     }
 
     
-    #10. Select individual stopover #1 locations ----
+    #11. Select individual stopover #1 locations ----
     locs.stop1 <- data.frame(expand.grid(pop=c(1:n.pop), ind=c(1:n.ind)) %>% 
                           mutate(lat = runif(min=stop1.min.lat, max=stop1.max.lat, n=n.pop*n.ind),
                                  long = runif(min=stop1.min.long, max=stop1.max.long, n=n.pop*n.ind))) %>% 
@@ -278,7 +280,7 @@ for(f in 1:set.sim){
       cbind(expand.grid(pop=c(1:n.pop), ind=c(1:n.ind))) %>% 
       mutate(season = "stop1")
     
-    #11. Select individual stopover #2 centroids ----
+    #12. Select individual stopover #2 centroids ----
     stop2.pop <- data.frame()
     while (nrow(stop2.pop) < n.pop) {
       
@@ -316,7 +318,7 @@ for(f in 1:set.sim){
       cbind(stop2.pop) %>% 
       mutate(pop = row_number())
     
-    #12. Select individual stopover 2 locations----
+    #13. Select individual stopover 2 locations----
     locs.stop2 <- data.frame()
     for(i in 1:nrow(stop2.pop)){
       pop = rep(stop2.pop$pop[i], n.ind)
@@ -329,7 +331,7 @@ for(f in 1:set.sim){
       
     }
     
-    #13. Select individual wintering locations----
+    #14. Select individual wintering locations----
     locs.winter <- data.frame(expand.grid(pop=c(1:n.pop), ind=c(1:n.ind)) %>% 
                                mutate(lat = runif(min=winter.min.lat, max=winter.max.lat, n=n.pop*n.ind),
                                       long = runif(min=winter.min.long, max=winter.max.long, n=n.pop*n.ind))) %>% 
@@ -340,11 +342,11 @@ for(f in 1:set.sim){
       mutate(season = "winter")
     
     
-    #14. Merge dates and locations----
+    #15. Merge dates and locations----
     locs.start <- rbind(locs.breed, locs.stop1, locs.stop2, locs.winter) %>% 
       full_join(dates)
       
-    #15. Error parameters for GPS locations-----
+    #16. Error parameters for GPS locations-----
     locs.start <- locs.start %>% 
       mutate(ID = paste(pop, ind, sep="-"),
              day = as.POSIXct(day)) %>% 
@@ -355,10 +357,10 @@ for(f in 1:set.sim){
     locs.start <- crawl::argosDiag2Cov(locs.start$error_semi_major_axis, locs.start$error_semi_minor_axis, locs.start$error_ellipse_orientation) %>% 
       cbind(locs.start)
     
-    #16. Save initial simulation locations----
+    #17. Save initial simulation locations----
     write.csv(locs.start, file=paste0(rd,"Data/StartingPoints/SimulationStartingPoints_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
     
-    #17. Wrangle for crawl----
+    #18. Wrangle for crawl----
     locs.start.sf1 <- locs.start %>% 
       dplyr::select(ID, X, Y) %>% 
       sf::st_as_sf(coords = c("X","Y")) %>% 
@@ -378,7 +380,7 @@ for(f in 1:set.sim){
                                    SpatialPointsDataFrame(x,y)
                                  })
     
-    #18. Create starting values----
+    #19. Create starting values----
     inits1 <- lapply(locs.list.sf1,
                      function(x){
                        list(a = c(sp::coordinates(x)[1,1],0,
@@ -388,7 +390,7 @@ for(f in 1:set.sim){
     
     fixpar <- c(1,1,NA,NA)
     
-    #19. Fit with crawl----
+    #20. Fit with crawl----
     fit1 <- mapply(x = locs.list.sf1,
                    y = inits1,
                    function(x,y){
@@ -409,7 +411,7 @@ for(f in 1:set.sim){
                                    attempts = 8))},
                    SIMPLIFY = FALSE)
     
-    #20. Save crawl parameters----
+    #21. Save crawl parameters----
     params1 <- lapply(fit1,
                       function(x){
                         crawl::tidy_crwFit(x)
@@ -418,7 +420,7 @@ for(f in 1:set.sim){
     
     write.csv(params.summary1, file=paste0(rd,"CrawlParameters/PredictedPaths1/CrawlParameters1_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
     
-    #21. Predict----
+    #22. Predict----
     times1 <- lapply(fit1,
                      function(x){
                        seq(lubridate::ceiling_date(min(as.POSIXct(x$data$day,tz ="GMT")),"day"),
@@ -437,7 +439,7 @@ for(f in 1:set.sim){
                     up.y = mu.y+se.mu.y,
                     lw.y = mu.y-se.mu.y)
     
-    #22. Check if any individuals didn't work----
+    #23. Check if any individuals didn't work----
     fit.na1 <- pred1 %>% 
       dplyr::filter(is.na(se.mu.x))
     
@@ -784,8 +786,6 @@ for(f in 1:set.sim){
                       up.y = mu.y+se.mu.y,
                       lw.y = mu.y-se.mu.y)
       
-#      write.csv(pred.spat2, file=paste0(rd,"Data/PredictedPaths2/PredictedPaths2_Spatial_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
-      
       #Temporal
       times.temp2 <- lapply(fit.temp2,
                             function(x){
@@ -805,9 +805,7 @@ for(f in 1:set.sim){
                       up.y = mu.y+se.mu.y,
                       lw.y = mu.y-se.mu.y)
       
-#      write.csv(pred.temp2, file=paste0(rd,"Data/PredictedPaths2/PredictedPaths2_Temporal_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
-      
-      #22. Check if any individuals didn't work----
+      #38. Check if any individuals didn't work----
       #Spatial
       fit.spat.na2 <- pred.spat2 %>% 
         dplyr::filter(is.na(se.mu.x))
@@ -843,7 +841,7 @@ for(f in 1:set.sim){
       
       else{
       
-      #40. Convert predictions to spatial features----
+      #39. Convert predictions to spatial features----
       #Spatial
       pred.locs.spat.sf2 <- sf::st_as_sf(pred.spat2, coords = c("mu.x","mu.y")) %>% 
         sf::st_set_crs(3857)
@@ -884,7 +882,7 @@ for(f in 1:set.sim){
         sf::st_set_crs(3857) %>% 
         sf::st_transform(4326)
       
-      #41. Plot predictions----
+      #40. Plot predictions----
       world <- ggplot() +
         borders("world", colour = "gray85", fill = "gray80") +
         theme_classic() +
@@ -907,7 +905,7 @@ for(f in 1:set.sim){
       
       ggsave(plot.temp3, file=paste0(rd,"Figs/PredictedPaths2/PredictedPaths2_Temporal_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".jpeg"), device="jpeg", width=8, height=8, units="in")
       
-      #42. Wrangle data for connectivity----
+      #41. Wrangle data for connectivity----
       locs.start.breed <- locs.start %>% 
         dplyr::filter(season=="breed") %>% 
         dplyr::select(ID, X, Y) %>% 
@@ -956,7 +954,7 @@ for(f in 1:set.sim){
       
       write.csv(pred.mc.temp, file=paste0(rd,"Data/TemporalConnectivityPoints/TemporalConnectivityPoints_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
       
-      #45. Spatial connectivity loop----
+      #42. Spatial connectivity loop----
       pops <- c(unique(pred.mc.spat$pop), 99)
       
       mantel.spat.flat <- list()
@@ -980,7 +978,7 @@ for(f in 1:set.sim){
           filter(count.pop > 1,
                  count.ind > 2)
         
-        #47. Set up inner loop----
+        #43. Set up inner loop----
         mantel.spat <- list()
         for(i in 1:nrow(lats)){
           
@@ -1036,7 +1034,7 @@ for(f in 1:set.sim){
           
         }
         
-        #51. Flatten spatial connectivity results----
+        #44. Flatten spatial connectivity results----
         mantel.spat.flat[[h]] <- rbindlist(mantel.spat)
         
         
@@ -1045,7 +1043,7 @@ for(f in 1:set.sim){
       }
       
       
-      #52. Temporal connectivity loop----
+      #45. Temporal connectivity loop----
       days <- pred.mc.temp %>% 
         group_by(doy, pop) %>% 
         summarize(count = n()) %>% 
@@ -1070,7 +1068,7 @@ for(f in 1:set.sim){
           dplyr::filter(firstdoy != day.h,
                         lastdoy != day.h)
         
-        #53. Filter out days with only one population----
+        #46. Filter out days with only one population----
         doys <- dat.temp.h %>% 
           group_by(doy, pop) %>% 
           summarize(count = n()) %>% 
@@ -1083,7 +1081,7 @@ for(f in 1:set.sim){
           filter(count.pop > 1,
                  count.ind > 2)  
         
-        #54. Set up inner loop----
+        #47. Set up inner loop----
         mantel.temp <- list()
         for(i in 1:nrow(doys)){
           
@@ -1092,7 +1090,7 @@ for(f in 1:set.sim){
           dat.temp.i <- dat.temp.h %>% 
             dplyr::filter(doy==doy.i)
           
-          #55. Create temporal connectivity inputs----
+          #48. Create temporal connectivity inputs----
           
           #Convert origin points to sp
           originPoints <- dat.temp.i %>% 
@@ -1136,14 +1134,12 @@ for(f in 1:set.sim){
             
           } 
           
-          
-          
           #Report status
           print(paste0("Completed ", i, " of ", nrow(doys), " migration days: ", doy.i))
           
         }
         
-        #57. Flatten temporal connectivity results----
+        #49. Flatten temporal connectivity results----
         mantel.temp.flat[[h]] <- rbindlist(mantel.temp)
         
         
@@ -1151,14 +1147,14 @@ for(f in 1:set.sim){
         
       }
       
-      #58. Flatten and save results for this iteration----
+      #50. Flatten and save results for this iteration----
       mantel.spat.flat2 <- rbindlist(mantel.spat.flat)
       write.csv(mantel.spat.flat2, file=paste0(rd,"Results/MCSpatial/MC_Spatial_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
       
       mantel.temp.flat2 <- rbindlist(mantel.temp.flat)
       write.csv(mantel.temp.flat2, file=paste0(rd,"Results/MCTemporal/MC_Temporal_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".csv"), row.names=FALSE)
       
-      #59. Summarize results----
+      #51. Summarize results----
       mantel.spat.sum <- data.frame(mantel.spat.flat2) %>% 
         dplyr::filter(!is.na(mantel)) %>% 
         group_by(lat, l1o) %>% 
@@ -1175,7 +1171,7 @@ for(f in 1:set.sim){
                   Mhighq=quantile(mantel, probs=0.915)) %>% 
         ungroup()
       
-      #60. Visualize profiles----
+      #52. Visualize profiles----
       
       mantelplot1 <- ggplot() +
         geom_hex(aes(x=lat, y=mantel), data=mantel.spat.flat2) +
@@ -1207,7 +1203,7 @@ for(f in 1:set.sim){
         facet_wrap(~l1o) +
         ggtitle("Temporal")
       
-      #61. Save profiles----
+      #53. Save profiles----
       grid <- grid.arrange(mantelplot1, mantelplot2, mantelplot3, mantelplot4, ncol=2, nrow=2)
       
       ggsave(grid, file=paste0(rd,"Figs/Profile/Profile_",n.pop,"-",n.ind,"-",n.gps,"_",n.sim,".jpeg"), device="jpeg", width=20, height=20, units="in")
@@ -1228,10 +1224,8 @@ for(f in 1:set.sim){
       
       print(paste0("COMPLETED ", n.sim, " of ", set.sim, " SIMULATIONS"))
       
-      
     }
 
-      
     }
     
   }
